@@ -1,3 +1,27 @@
+commit ae6d749acb3c59d822a799b40b3d3f70427e614b
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 2 08:57:21 2014 -0700
+
+    Update travis for master branch
+
+commit 1c4c1edea39afced81bd788241dd5ef26fcab152
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 1 18:01:13 2014 -0700
+
+    Document additional ::Bucket methods
+    
+    - stats
+    - observe
+    - views
+
+commit 69fd2c331844cc5e0ca22134621a62a7fb5c1631
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 1 17:24:45 2014 -0700
+
+    fix some POD formatting issues
+    
+    DESCRIPTION should not be a sub-section of SYNOPSIS
+
 commit 50bda2ea524241446803aa896d419133f05e2020
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Wed Oct 1 11:21:37 2014 -0700
