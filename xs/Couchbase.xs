@@ -10,41 +10,14 @@ void plcb_cleanup(PLCB_t *object)
         lcb_destroy(object->instance);
         object->instance = NULL;
     }
+    plcb_opctx_clear(object);
+    SvREFCNT_dec(object->cachectx);
 
     #define _free_cv(fld) if (object->fld) { SvREFCNT_dec(object->fld); object->fld = NULL; }
     _free_cv(cv_serialize); _free_cv(cv_deserialize);
     _free_cv(cv_jsonenc); _free_cv(cv_jsondec);
     _free_cv(cv_customenc); _free_cv(cv_customdec);
     #undef _free_cv
-}
-
-static SV *
-new_opctx(PLCB_t *parent, int flags)
-{
-    plcb_OPCTX *ctx;
-    Newxz(ctx, 1, plcb_OPCTX);
-
-    SV *blessed = newSV(0);
-    sv_setiv(blessed, PTR2IV(ctx));
-    blessed = newRV_noinc(blessed);
-    sv_bless(blessed, parent->opctx_sync_stash);
-
-    ctx->flags = flags;
-    ctx->parent = newRV_inc(parent->selfobj);
-    sv_rvweaken(ctx->parent);
-
-    return blessed;
-}
-
-static void
-clear_opctx(PLCB_t *parent)
-{
-    if (!parent->curctx) {
-        return;
-    }
-    SvREFCNT_dec(parent->curctx);
-    parent->curctx = NULL;
-
 }
 
 /*Construct a new libcouchbase object*/
@@ -54,16 +27,36 @@ PLCB_construct(const char *pkg, HV *hvopts)
     lcb_t instance;
     lcb_error_t err;
     struct lcb_create_st cr_opts = { 0 };
+
     SV *blessed_obj;
+    SV *iops_impl = NULL;
+    SV *conncb = NULL;
+
     PLCB_t *object;
     plcb_OPTION options[] = {
         PLCB_KWARG("connstr", CSTRING, &cr_opts.v.v3.connstr),
         PLCB_KWARG("password", CSTRING, &cr_opts.v.v3.passwd),
+        PLCB_KWARG("io", SV, &iops_impl),
+        PLCB_KWARG("on_connect", CV, &conncb),
         { NULL }
     };
 
     cr_opts.version = 3;
     plcb_extract_args((SV*)hvopts, options);
+
+    if (iops_impl && SvTYPE(iops_impl) != SVt_NULL) {
+        plcb_IOPROCS *ioprocs;
+        /* Validate */
+        if (!sv_derived_from(iops_impl, PLCB_IOPROCS_CLASS)) {
+            die("io must be a valid " PLCB_IOPROCS_CLASS);
+        }
+        if (!conncb) {
+            die("Connection callback must be specified in async mode");
+        }
+        ioprocs = NUM2PTR(plcb_IOPROCS* , SvIV(SvRV(iops_impl)));
+        cr_opts.v.v3.io = ioprocs->iops_ptr;
+    }
+
     err = lcb_create(&instance, &cr_opts);
 
     if (!instance) {
@@ -73,6 +66,12 @@ PLCB_construct(const char *pkg, HV *hvopts)
     Newxz(object, 1, PLCB_t);
     lcb_set_cookie(instance, object);
     object->instance = instance;
+
+    if (iops_impl) {
+        object->ioprocs = newRV_inc(SvRV(iops_impl));
+        object->conncb = newRV_inc(SvRV(conncb));
+        object->async = 1;
+    }
 
     plcb_callbacks_setup(object);
     plcb_vh_callbacks_setup(object);
@@ -90,8 +89,6 @@ PLCB_construct(const char *pkg, HV *hvopts)
     sv_setiv(newSVrv(blessed_obj, PLCB_BKT_CLASSNAME), PTR2IV(object));
 
     object->selfobj = SvRV(blessed_obj);
-    object->deflctx = new_opctx(object, PLCB_OPCTXf_IMPLICIT);
-
     return blessed_obj;
 }
 
@@ -109,6 +106,10 @@ PLCB_connect(PLCB_t *object)
         if ((err = lcb_connect(instance)) != LCB_SUCCESS) {
             goto GT_ERR;
         }
+        if (object->async) {
+            return 0;
+        }
+
         lcb_wait(instance);
         if ((err = lcb_get_bootstrap_status(instance)) != LCB_SUCCESS) {
             goto GT_ERR;
@@ -139,45 +140,6 @@ get_converter_pointers(PLCB_t *object, int type, SV ***cv_encode, SV ***cv_decod
     }
 }
 
-static void
-PLCB__set_converters(PLCB_t *object, int type, CV *encode, CV *decode)
-{
-    SV **cv_encode, **cv_decode;
-    get_converter_pointers(object, type, &cv_encode, &cv_decode);
-    if (*cv_encode) {
-        SvREFCNT_dec(*cv_encode);
-    }
-    if (*cv_decode) {
-        SvREFCNT_dec(*cv_decode);
-    }
-    SvREFCNT_inc(encode);
-    SvREFCNT_inc(decode);
-    *cv_encode = (SV*)encode;
-    *cv_decode = (SV*)decode;
-}
-
-static SV *
-PLCB__get_converters(PLCB_t *object, int type)
-{
-    SV **cv_encode, **cv_decode;
-    SV *my_encode, *my_decode;
-    AV *ret;
-    get_converter_pointers(object, type, &cv_encode, &cv_decode);
-    if ((my_encode = *cv_encode)) {
-        my_encode = newRV_inc(my_encode);
-    } else {
-        my_encode = &PL_sv_undef; SvREFCNT_inc(my_encode);
-    }
-    if ((my_decode = *cv_decode)) {
-        my_decode = newRV_inc(my_decode);
-    } else {
-        my_decode = &PL_sv_undef; SvREFCNT_inc(my_decode);
-    }
-    ret = newAV();
-    av_push(ret, my_encode);
-    av_push(ret, my_decode);
-    return newRV_noinc((SV*)ret);
-}
 
 /* lcb_cntl() APIs */
 static void
@@ -259,109 +221,6 @@ PLCB__cntl_get(PLCB_t *object, int setting, int type)
     }
 }
 
-static void
-init_singleop(plcb_SINGLEOP *so, PLCB_t *parent, SV *doc, SV *ctx, SV *options)
-{
-    if (!plcb_doc_isa(parent, doc)) {
-        sv_dump(doc);
-        die("Must pass a " PLCB_RET_CLASSNAME);
-        /* Initialize the document to 0 */
-    }
-    so->docrv = doc;
-    so->docav = (AV *)SvRV(doc);
-    so->opctx = ctx;
-    so->parent = parent;
-    so->cookie = so->docav;
-
-    plcb_doc_set_err(parent, so->docav, -1);
-
-    if (options && SvTYPE(options) != SVt_NULL) {
-        if (SvROK(options) == 0 || SvTYPE(SvRV(options)) != SVt_PVHV) {
-            sv_dump(options);
-            die("options must be undef or a HASH reference");
-        }
-        so->cmdopts = options;
-    }
-
-    if (ctx && SvTYPE(ctx) != SVt_NULL) {
-        if (!plcb_opctx_isa(parent, ctx)) {
-            die("ctx must be undef or a %s object", PLCB_OPCTX_CLASSNAME);
-        }
-        if (parent->curctx && SvRV(ctx) != SvRV(parent->curctx)) {
-            sv_dump(parent->curctx);
-            sv_dump(ctx);
-            die("Current context already set!");
-        }
-        so->opctx = ctx;
-    } else {
-        if (parent->curctx && SvRV(parent->curctx) != SvRV(ctx)) {
-            plcb_OPCTX *oldctx = NUM2PTR(plcb_OPCTX*, SvIVX(SvRV(parent->curctx)));
-            if (oldctx->nremaining) {
-                warn("Existing batch context found. This may leak memory. Have %d items remaining", oldctx->nremaining);
-            }
-            lcb_sched_fail(parent->instance);
-            clear_opctx(parent);
-        }
-
-        assert(parent->curctx == NULL);
-        so->opctx = parent->deflctx;
-        lcb_sched_enter(parent->instance);
-    }
-}
-
-SV *
-PLCB_args_return(plcb_SINGLEOP *so, lcb_error_t err)
-{
-    /* Figure out what type of context we are */
-    int haserr = 0;
-    SV *retval;
-    plcb_OPCTX *ctx = NUM2PTR(plcb_OPCTX*, SvIV(SvRV(so->opctx)));
-
-    if (err != LCB_SUCCESS) {
-        /* Remove the doc's "Parent" field */
-        av_store(so->docav, PLCB_RETIDX_PARENT, &PL_sv_undef);
-
-        if (ctx->flags & PLCB_OPCTXf_IMPLICIT) {
-            lcb_sched_fail(so->parent->instance);
-        }
-
-        warn("Couldn't schedule operation. Code 0x%x (%s)\n", err, lcb_strerror(NULL, err));
-        haserr = 1;
-        goto GT_RET;
-    }
-
-    /* Increment refcount for the parent */
-    av_store(so->docav, PLCB_RETIDX_PARENT, newRV_inc(SvRV(so->opctx)));
-    /* Increment refcount for the doc itself (decremented in callback) */
-    SvREFCNT_inc((SV*)so->docav);
-    /* Increment remaining count on the context */
-    ctx->nremaining++;
-
-    if (ctx->flags & PLCB_OPCTXf_IMPLICIT) {
-        lcb_sched_leave(so->parent->instance);
-        lcb_wait3(so->parent->instance, LCB_WAIT_NOCHECK);
-        /* See if we have an error */
-        if (plcb_doc_get_err(so->docav) != LCB_SUCCESS) {
-            haserr = 1;
-        }
-    }
-
-    GT_RET:
-    if (ctx->flags & PLCB_OPCTXf_IMPLICIT) {
-        if (haserr) {
-            retval = &PL_sv_no;
-        } else {
-            retval = &PL_sv_yes;
-        }
-    } else {
-        retval = so->opctx;
-        SvREFCNT_inc(so->opctx);
-    }
-
-    SvREFCNT_inc(retval);
-    return retval;
-}
-
 #define dPLCB_INPUTS \
     SV *options = &PL_sv_undef; SV *ctx = &PL_sv_undef;
 
@@ -380,11 +239,43 @@ PLCB_construct(const char *pkg, HV *options)
 int
 PLCB_connect(PLCB_t *object)
 
-void
-PLCB__set_converters(PLCB_t *object, int type, CV *encode, CV *decode)
-
 SV *
-PLCB__get_converters(PLCB_t *object, int type)
+PLCB__codec_common(PLCB_t *object, int type, ...)
+    ALIAS:
+    _encoder = 1
+    _decoder = 2
+
+    PREINIT:
+    SV **cv_encode = NULL, **cv_decode = NULL, **target = NULL;
+
+    CODE:
+    get_converter_pointers(object, type, &cv_encode, &cv_decode);
+    target = ix == 1 ? cv_encode : cv_decode;
+
+    if (items == 2) {
+        if (*target) {
+            RETVAL = newRV_inc(*target);
+        } else {
+            RETVAL = &PL_sv_undef; SvREFCNT_inc(&PL_sv_undef);
+        }
+    } else {
+        SV *tmpsv = ST(2);
+        SV *to_decref = *target;
+
+        RETVAL = &PL_sv_undef;
+        if (tmpsv != &PL_sv_undef) {
+            if (SvROK(tmpsv) == 0 || SvTYPE(SvRV(tmpsv)) != SVt_PVCV) {
+                die("Argument passed must be undef or CODE reference");
+            }
+            *target = SvRV(tmpsv);
+            SvREFCNT_inc(*target);
+        } else {
+            *target = NULL;
+        }
+        SvREFCNT_dec(to_decref);
+        SvREFCNT_inc(RETVAL);
+    }
+    OUTPUT: RETVAL
 
 void
 PLCB__cntl_set(PLCB_t *object, int setting, int type, SV *value)
@@ -413,7 +304,7 @@ PLCB__get(PLCB_t *self, SV *doc, ...)
     CODE:
     FILL_EXTRA_PARAMS()
 
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     RETVAL = PLCB_op_get(self, &opinfo);
     OUTPUT: RETVAL
     
@@ -433,7 +324,7 @@ PLCB__store(PLCB_t *self, SV *doc, ...)
     CODE:
     FILL_EXTRA_PARAMS()
     opinfo.cmdbase = ix;
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
 
     
     RETVAL = PLCB_op_set(self, &opinfo);
@@ -447,7 +338,7 @@ PLCB_remove(PLCB_t *self, SV *doc, ...)
 
     CODE:
     FILL_EXTRA_PARAMS()
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     
     RETVAL = PLCB_op_remove(self, &opinfo);
     OUTPUT: RETVAL
@@ -461,7 +352,7 @@ PLCB_unlock(PLCB_t *self, SV *doc, ...)
 
     CODE:
     FILL_EXTRA_PARAMS()
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     RETVAL = PLCB_op_unlock(self, &opinfo);
     OUTPUT: RETVAL
 
@@ -472,7 +363,7 @@ PLCB_counter(PLCB_t *self, SV *doc, ...)
     dPLCB_INPUTS;
     CODE:
     FILL_EXTRA_PARAMS()
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     RETVAL = PLCB_op_counter(self, &opinfo);
     OUTPUT: RETVAL
 
@@ -489,7 +380,7 @@ PLCB__stats_common(PLCB_t *self, SV *doc, ...)
 
     CODE:
     FILL_EXTRA_PARAMS()
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     RETVAL = PLCB_op_stats(self, &opinfo);
     OUTPUT: RETVAL
 
@@ -501,7 +392,7 @@ PLCB__observe(PLCB_t *self, SV *doc, ...)
     dPLCB_INPUTS
     CODE:
     FILL_EXTRA_PARAMS()
-    init_singleop(&opinfo, self, doc, ctx, options);
+    plcb_opctx_initop(&opinfo, self, doc, ctx, options);
     RETVAL = PLCB_op_observe(self, &opinfo);
     OUTPUT: RETVAL
 
@@ -574,13 +465,8 @@ PLCB_batch(PLCB_t *object)
     SV *ctxrv = NULL;
 
     CODE:
-    if (object->curctx) {
-        die("Previous context must be cleared explicitly");
-    }
-
-    ctxrv = new_opctx(object, 0);
-    object->curctx = newRV_inc(SvRV(ctxrv));
-    RETVAL = ctxrv;
+    ctxrv = plcb_opctx_new(object, 0);
+    RETVAL = newRV_inc(SvRV(ctxrv));
 
     lcb_sched_enter(object->instance);
     OUTPUT: RETVAL
@@ -589,7 +475,30 @@ PLCB_batch(PLCB_t *object)
 void
 PLCB__ctx_clear(PLCB_t *object)
     CODE:
-    clear_opctx(object);
+    plcb_opctx_clear(object);
+
+
+SV *
+PLCB_user_data(PLCB_t *object, ...)
+    PREINIT:
+    SV *arg;
+    CODE:
+    if (items == 1) {
+        RETVAL = object->udata;
+    } else {
+        SvREFCNT_dec(object->udata);
+        object->udata = ST(1);
+        SvREFCNT_inc(object->udata);
+        RETVAL = &PL_sv_undef;
+    }
+    SvREFCNT_inc(RETVAL);
+    OUTPUT: RETVAL
+
+int
+PLCB_connected(PLCB_t *object)
+    CODE:
+    RETVAL = object->connected;
+    OUTPUT: RETVAL
 
 MODULE = Couchbase PACKAGE = Couchbase::OpContext PREFIX = PLCB_ctx_
 
@@ -614,7 +523,6 @@ PLCB_ctx_wait_all(plcb_OPCTX *ctx)
     ctx->flags &= ~PLCB_OPCTXf_WAITONE;
     lcb_sched_leave(parent->instance);
     lcb_wait3(parent->instance, LCB_WAIT_NOCHECK);
-    clear_opctx(parent);
 
 
 SV *
@@ -627,30 +535,27 @@ PLCB_ctx_wait_one(plcb_OPCTX *ctx)
         die("Parent context is destroyed");
     }
 
-    if (ctx->ctxqueue) {
-        RETVAL = av_shift(ctx->ctxqueue);
+    if (ctx->u.ctxqueue) {
+        RETVAL = av_shift(ctx->u.ctxqueue);
         if (RETVAL != &PL_sv_undef) {
             goto GT_DONE;
         }
     }
 
-    if (!parent->curctx) {
-        die("Current context is not active");
-    }
-
     if (!ctx->nremaining) {
-        clear_opctx(parent);
         RETVAL = &PL_sv_undef;
         SvREFCNT_inc(&PL_sv_undef);
         goto GT_DONE;
     }
-    if (!ctx->ctxqueue) {
-        ctx->ctxqueue = newAV();
+
+    if (!ctx->u.ctxqueue) {
+        ctx->u.ctxqueue = newAV();
     }
+
     ctx->flags |= PLCB_OPCTXf_WAITONE;
     lcb_sched_leave(parent->instance);
     lcb_wait3(parent->instance, LCB_WAIT_NOCHECK);
-    RETVAL = av_shift(ctx->ctxqueue);
+    RETVAL = av_shift(ctx->u.ctxqueue);
 
     GT_DONE: ;
     OUTPUT: RETVAL
@@ -665,12 +570,37 @@ PLCB_ctx__cbo(plcb_OPCTX *ctx)
     OUTPUT: RETVAL
 
 void
+PLCB_ctx_set_callback(plcb_OPCTX *ctx, CV *cv)
+    PREINIT:
+    PLCB_t *parent;
+    CODE:
+    SvREFCNT_dec(ctx->u.callback);
+    ctx->u.callback = newRV_inc((SV*)cv);
+
+SV *
+PLCB_ctx_get_callback(plcb_OPCTX *ctx)
+    PREINIT:
+    PLCB_t *parent;
+    CODE:
+    if (!ctx->u.callback) {
+        RETVAL = &PL_sv_undef;
+    } else {
+        RETVAL = ctx->u.callback;
+    }
+    SvREFCNT_inc(RETVAL);
+    OUTPUT: RETVAL
+
+
+void
 PLCB_ctx_DESTROY(plcb_OPCTX *ctx)
     PREINIT:
     PLCB_t *parent;
     CODE:
+
     SvREFCNT_dec(ctx->parent);
-    SvREFCNT_dec(ctx->ctxqueue);
+    SvREFCNT_dec(ctx->u.ctxqueue);
+    SvREFCNT_dec(ctx->docs);
+    Safefree(ctx);
 
 MODULE = Couchbase PACKAGE = Couchbase    PREFIX = PLCB_
 
@@ -702,8 +632,13 @@ PLCB__get_errtype(int code)
 
 SV *
 PLCB_strerror(int code)
+    PREINIT:
+    const char *msg;
+    unsigned len;
     CODE:
-    RETVAL = newSVpv_share(lcb_strerror(NULL, code), 0);
+    msg = lcb_strerror(NULL, code);
+    len = strlen(msg);
+    RETVAL = newSVpvn_share(msg, len, 0);
     SvREADONLY_on(RETVAL);
     OUTPUT: RETVAL
 
@@ -721,5 +656,6 @@ SPAGAIN;
     plcb_define_constants();
     PLCB_BOOTSTRAP_DEPENDENCY(boot_Couchbase__View);
     PLCB_BOOTSTRAP_DEPENDENCY(boot_Couchbase__BucketConfig);
+    PLCB_BOOTSTRAP_DEPENDENCY(boot_Couchbase__IO);
 }
 #undef PLCB_BOOTSTRAP_DEPENDENCY

@@ -46,6 +46,7 @@ xs/typemap
 xs/callbacks.c
 xs/convert.c
 xs/constants.c
+xs/opcontext.c
 
 ################################################################################
 ### Basic C Client Support                                                   ###
@@ -55,6 +56,8 @@ xs/operations.c
 xs/Couchbase.xs
 xs/BucketConfig.xs
 xs/plcb-args.h
+xs/async.c
+xs/IO.xs
 
 ################################################################################
 ### Views C Support                                                          ###

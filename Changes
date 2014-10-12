@@ -1,3 +1,100 @@
+commit da2723accbc381a80895507bc2245c19ef6e2d87
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 12 14:36:22 2014 -0700
+
+    Bump to version 2.0.0_3
+
+commit 0417eae61c7086372359c4e389574c94be36515d
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 12 14:31:06 2014 -0700
+
+    Clear current context upon submission for async
+
+commit 279422ceaa027de471486b53964cf4c795a7569c
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 12 14:16:57 2014 -0700
+
+    RV might end up being NULL during global destruction
+
+commit 914d590064a26a204c6e317f417aff4d2bd12202
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 12 13:54:52 2014 -0700
+
+    Beef up async code
+    
+    a desparate attempt to make things a bit faster..
+
+commit 838cf6f3fa3fae938887269cfadcf04ffc77ad56
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 12 11:51:22 2014 -0700
+
+    Use hash table for contexts
+    
+    This reduces memory leaks and makes the development model more
+    consistent
+
+commit a8c094e70aa865d5badf93388cec6054b1d93a89
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 11 14:20:10 2014 -0700
+
+    Move operation context routines to own file
+
+commit 8119af3accb7f0a7466374928ceb4d9e32a49b7f
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 11 11:56:24 2014 -0700
+
+    Relax the requirement for `JSON`.
+    
+    We only need 2.x; nothing special or fancy
+
+commit c7ac34f15cc0e8e32242aae859731af2de173091
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 11 11:46:22 2014 -0700
+
+    Add Couchbase::Test::Settings for settings tests
+
+commit e76aa8c02ce78faa17460592ff3a0307fd809aee
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 11 09:15:20 2014 -0700
+
+    GH-18: Unify codepaths for FMT_RAW and unrecognized flags
+
+commit 2ff9aa0a8937bb418612300e6f24ae2d35ee5927
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Oct 10 09:24:51 2014 -0700
+
+    GH-17: Use newSVpvn_share
+    
+    This is available since Perl 5.7
+
+commit 2893c9cd7a9179c9c63a24788150964672bf05c8
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 9 19:42:22 2014 -0700
+
+    GH-19: add missing MANIFEST files
+
+commit ef7466ca119dab5df5cb24656cec18924c4f3b79
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 8 14:04:05 2014 -0700
+
+    Clean up encoder/decoder settings
+    
+    This moves the settings over to Couchbase::Settings instead.
+
+commit 245ff76c6f9e7b9f318588a306720015c0ab3c99
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Oct 3 17:17:01 2014 -0700
+
+    Basic async commit
+    
+    This code isn't guaranteed to work, but it doesn't break other stuf..
+
+commit fa5f571cf8d62e570d18667327d47ce3eaaa7af4
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 2 09:06:18 2014 -0700
+
+    Update for version 2.0.0_2
+
 commit ae6d749acb3c59d822a799b40b3d3f70427e614b
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Thu Oct 2 08:57:21 2014 -0700

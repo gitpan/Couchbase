@@ -23,8 +23,9 @@ no_index:
     - inc
 requires:
   Class::XSAccessor: '1.11'
-  JSON: '2.53'
+  Constant::Generate: '0.16'
+  JSON: '2'
   JSON::SL: v1.0.1
 resources:
   repository: https://github.com/mnunberg/perl-Couchbase-Client
-version: v2.0.0_2
+version: v2.0.0_3

@@ -104,15 +104,73 @@ call_helper(AV *resobj, int cbtype, const lcb_RESPBASE *resp)
     LEAVE;
 }
 
+static void
+call_async(plcb_OPCTX *ctx, AV *resobj)
+{
+    SV *cv = ctx->u.callback;
+    dSP;
+
+    if (cv == NULL || SvOK(cv) == 0) {
+        warn("Context does not have a callback (%p)!", cv);
+        return;
+    }
+
+    if ((ctx->flags & PLCB_OPCTXf_IMPLICIT) == 0) {
+        if (ctx->nremaining && (ctx->flags & PLCB_OPCTXf_CALLEACH) == 0) {
+            return; /* Still have ops. Only call once they're all complete */
+        }
+    }
+
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newRV_inc((SV*)resobj)));
+    PUTBACK;
+    call_sv(cv, G_DISCARD);
+    FREETMPS;
+    LEAVE;
+
+    if (ctx->nremaining == 0 && (ctx->flags & PLCB_OPCTXf_CALLDONE)) {
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        call_sv(cv, G_DISCARD);
+        FREETMPS;
+        LEAVE;
+    }
+}
+
 /* This callback is only ever called for single operation, single key results */
 static void
 callback_common(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
 {
-    AV *resobj = (AV *) resp->cookie;
-    SV *ctxrv = *av_fetch(resobj, PLCB_RETIDX_PARENT, 0);
-    PLCB_t *parent = (PLCB_t *) lcb_get_cookie(instance);
-    plcb_OPCTX *ctx = NUM2PTR(plcb_OPCTX*, SvIV(SvRV(ctxrv)));
+    AV *resobj = NULL;
+    PLCB_t *parent;
+    SV *ctxrv = (SV *)resp->cookie;
+    plcb_OPCTX *ctx = NUM2PTR(plcb_OPCTX*, SvIVX(SvRV(ctxrv)));
 
+    if (cbtype == LCB_CALLBACK_STATS || cbtype == LCB_CALLBACK_OBSERVE) {
+        HE *tmp;
+
+        hv_iterinit(ctx->docs);
+        tmp = hv_iternext(ctx->docs);
+
+        if (tmp && HeVAL(tmp) && SvROK(HeVAL(tmp))) {
+            resobj = (AV *)SvRV(HeVAL(tmp));
+        }
+    } else {
+        SV **tmp = hv_fetch(ctx->docs, resp->key, resp->nkey, 0);
+        if (tmp && SvROK(*tmp)) {
+            resobj = (AV*)SvRV(*tmp);
+        }
+    }
+
+    if (!resobj) {
+        warn("Couldn't find matching object!");
+        return;
+    }
+
+    parent = (PLCB_t *)lcb_get_cookie(instance);
     plcb_doc_set_err(parent, resobj, resp->rc);
 
     switch (cbtype) {
@@ -172,15 +230,45 @@ callback_common(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
         break;
     }
 
-
     ctx->nremaining--;
 
-    if (ctx->flags & PLCB_OPCTXf_WAITONE) {
-        av_push(ctx->ctxqueue, newRV_inc( (SV* )resobj));
+    if (parent->async) {
+        call_async(ctx, resobj);
+    } else if (ctx->flags & PLCB_OPCTXf_WAITONE) {
+        av_push(ctx->u.ctxqueue, newRV_inc( (SV* )resobj));
         lcb_breakout(instance);
     }
 
-    SvREFCNT_dec(resobj);
+    if (!ctx->nremaining) {
+        SvREFCNT_dec(ctxrv);
+        plcb_opctx_clear(parent);
+    }
+}
+
+static void
+bootstrap_callback(lcb_t instance, lcb_error_t status)
+{
+    dSP;
+    PLCB_t *obj = (PLCB_t*) lcb_get_cookie(instance);
+    if (!obj->async) {
+        return;
+    }
+    if (!obj->conncb) {
+        warn("Object %p does not have a connect callback!", obj);
+        return;
+    }
+    printf("Invoking callback for connect..!\n");
+
+    ENTER;SAVETMPS;PUSHMARK(SP);
+
+    XPUSHs(sv_2mortal(newRV_inc(obj->selfobj)));
+    XPUSHs(sv_2mortal(newSViv(status)));
+    PUTBACK;
+
+    call_sv(obj->conncb, G_DISCARD);
+    SPAGAIN;
+    FREETMPS;LEAVE;
+    SvREFCNT_dec(obj->conncb); obj->conncb = NULL;
 }
 
 void
@@ -198,4 +286,5 @@ plcb_callbacks_setup(PLCB_t *object)
     lcb_install_callback3(o, LCB_CALLBACK_ENDURE, callback_common);
     lcb_install_callback3(o, LCB_CALLBACK_STATS, callback_common);
     lcb_install_callback3(o, LCB_CALLBACK_OBSERVE, callback_common);
+    lcb_set_bootstrap_callback(o, bootstrap_callback);
 }
