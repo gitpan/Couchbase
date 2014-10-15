@@ -3,7 +3,11 @@
 #include "XSUB.h"
 #include "perl-couchbase.h"
 
-void plcb_evloop_wait_unref(PLCB_t *obj) { (void)obj; }
+void plcb_evloop_wait_unref(PLCB_t *obj) {
+    if (obj->wait_for_kv == 0 && obj->wait_for_views == 0) {
+        lcb_breakout(obj->instance);
+    }
+}
 
 static int
 chain_endure(PLCB_t *obj, AV *resobj, const lcb_RESPSTORE *resp)
@@ -191,15 +195,14 @@ callback_common(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
     case LCB_CALLBACK_UNLOCK:
     case LCB_CALLBACK_STORE:
     case LCB_CALLBACK_ENDURE:
-        if (resp->cas) {
+        if (resp->cas && resp->rc == LCB_SUCCESS) {
             plcb_doc_set_cas(parent, resobj, &resp->cas);
         }
 
-        if (cbtype == LCB_CALLBACK_STORE &&
+        if (cbtype == LCB_CALLBACK_STORE && resp->rc == LCB_SUCCESS &&
                 chain_endure(parent, resobj, (const lcb_RESPSTORE *)resp)) {
             return; /* Will be handled already */
         }
-        plcb_evloop_wait_unref(parent);
         break;
 
     case LCB_CALLBACK_COUNTER: {
@@ -236,11 +239,12 @@ callback_common(lcb_t instance, int cbtype, const lcb_RESPBASE *resp)
         call_async(ctx, resobj);
     } else if (ctx->flags & PLCB_OPCTXf_WAITONE) {
         av_push(ctx->u.ctxqueue, newRV_inc( (SV* )resobj));
-        lcb_breakout(instance);
+        plcb_kv_waitdone(parent);
     }
 
     if (!ctx->nremaining) {
         SvREFCNT_dec(ctxrv);
+        plcb_kv_waitdone(parent);
         plcb_opctx_clear(parent);
     }
 }

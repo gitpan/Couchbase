@@ -4,7 +4,7 @@
       "M. Nunberg <mnunberg@haskalah.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.142060",
+   "generated_by" : "ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "perl_5"
    ],
@@ -22,11 +22,7 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Dir::Self" : "0",
-            "ExtUtils::MakeMaker" : "0",
-            "Log::Fu" : "0",
-            "Test::Class" : "0.36",
-            "Test::More" : "0"
+            "ExtUtils::MakeMaker" : "0"
          }
       },
       "configure" : {
@@ -49,5 +45,5 @@
          "url" : "https://github.com/mnunberg/perl-Couchbase-Client"
       }
    },
-   "version" : "v2.0.0_3"
+   "version" : "v2.0.0_4"
 }

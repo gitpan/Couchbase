@@ -1,3 +1,9 @@
+commit a028e1b719ceb926963cb2847316e105a35e9b9d
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 11:07:35 2014 -0700
+
+    GH-21: Fix some compiler warnings
+
 commit da2723accbc381a80895507bc2245c19ef6e2d87
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Sun Oct 12 14:36:22 2014 -0700
