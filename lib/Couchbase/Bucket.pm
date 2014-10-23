@@ -140,6 +140,13 @@ sub settings {
     return \%h;
 }
 
+sub fetch {
+    my ($self, $id) = @_;
+    my $doc = Couchbase::Document->new($id);
+    $self->get($doc);
+    return $doc;
+}
+
 # Returns a 'raw' request handle
 sub _htraw {
     my $self = $_[0];
@@ -151,7 +158,6 @@ sub design_get {
     my ($self,$path) = @_;
     my $handle = $self->_new_viewhandle(\%Couchbase::View::Handle::Slurpee::);
     my $design = $handle->slurp_jsonized("GET", "_design/" . $path, "");
-    bless $design, 'Couchbase::View::Design';
 }
 
 # saves a design document
@@ -413,6 +419,14 @@ the item. See L<"Document Expiration"> for more details:
     $cb->get_and_touch($doc); # Expires in 5 minutes
 
 
+=head3 fetch($id)
+
+This is a convenience method which will create a new document with the given C<id>
+and perform a C<get> on it. It will then return the resulting document.
+
+    my $doc = $cb->fetch("id_to_retrieve");
+
+
 =head3 insert($doc)
 
 =head3 replace($doc, $options)
@@ -578,7 +592,7 @@ Set a high timeout for a specified operation:
     sub example_hit_counter {
         my $page_name = shift;
         my $doc = Couchbase::Document->new("page:$page_name");
-        $cb->counter($doc, { initial => 1, amount => 1 });
+        $cb->counter($doc, { initial => 1, delta => 1 });
     }
 
 
@@ -658,6 +672,41 @@ To create a new context, use the C<batch> method
 
 Returns a new L<Couchbase::OpContext> which may be used to schedule
 operations.
+
+
+=head2 Batched Durability Requirements
+
+In some scenarios it may be more efficient on the network to
+submit durability requirement requests as a large single command. The behavior for
+the C<persist_to> and C<replicate_to> parameters in the C<upsert()> family of
+methods will cause a durability request to be sent out to the given nodes
+node as soon as the success is received for the newly-modified item. This
+approach reduces latency at the cost of additional bandwidth.
+
+Some bandwidth may be potentially saved if these requests are all batched
+together:
+
+
+=head2 durability_batch($options)
+
+I<Volatile - Subject to change>
+
+Creates a new durability batch. A durability batch is a special kind of batch
+where the contained commands can only be documents whose durability is to
+be checked.
+
+    my $batch;
+    $batch = $cb->batch;
+    $batch->upsert($_) for @docs;
+    $batch->wait_all;
+
+    $batch = $cb->durability_batch({ persist_to => 1, replicate_to => 2 });
+    $batch->endure($_) for @docs;
+    $batch->wait_all;
+
+
+The C<options> passed can be C<persist_to> and C<replicate_to>. See the
+L<"Durability Requirements"> section for information.
 
 
 =head2 VIEW (MAPREDUCE) QUERIES

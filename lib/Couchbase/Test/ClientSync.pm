@@ -78,10 +78,13 @@ sub T02_mutators :Test(no_plan) {
     $o->remove($doc); #if it already exists
 
     $doc->format('utf8');
-    ok($o->insert($doc));
-    ok($o->prepend_bytes($doc, {fragment=>"PREFIX_"}));
-    ok($o->append_bytes($doc, {fragment=>"_SUFFIX"}));
-    ok($o->get($doc));
+
+    ok($o->insert($doc), "Inserting new document");
+    $doc->is_ok or die "Couldn't insert: " . $doc->errstr;
+
+    ok($o->prepend_bytes($doc, {fragment=>"PREFIX_"}), "Prepending");
+    ok($o->append_bytes($doc, {fragment=>"_SUFFIX"}), "Appending");
+    ok($o->get($doc), "Retrieval");
     is($doc->value, "PREFIX_BASE_SUFFIX", "Got expected mutated value");
 }
 
@@ -275,6 +278,7 @@ sub T10_locks :Test(no_plan) {
 
     $o->get_and_lock($doc, {lock_duration=>5});
     ok($o->upsert($doc), "Implicit unlock with CAS ok");
+    $o->remove($doc); # Clean up
 }
 
 sub wait_for_exp {
@@ -328,5 +332,41 @@ sub T12_observe :Test(no_plan) {
     ok($obsret->is_ok);
     is(1, scalar @{$obsret->value});
     ok($obsret->value->[0]->{master});
+}
+
+sub T13_endure :Test(no_plan) {
+    my $self = shift;
+    my $cb = $self->cbo;
+    my $doc = Couchbase::Document->new("endure_key", "endure_value");
+
+    $cb->upsert($doc, { persist_to => -1, replicate_to => -1 });
+    ok($doc->is_ok, "Document inserted OK " . $doc->errstr);
+
+    # Try with a durability batch:
+    my @docs = Couchbase::Document->new("endure_$_", "value") for (0..3);
+    my $batch = $cb->batch();
+    $batch->upsert($_) for @docs;
+    $batch->wait_all;
+
+    foreach (@docs) {
+        ok(0, "Couldn't upsert") unless $_->is_ok;
+    }
+    $batch = $cb->durability_batch({persist_to => -1, replicate_to => -1});
+    $batch->endure($_) for @docs;
+    $batch->wait_all;
+    foreach (@docs) {
+        ok(0, "Couldn't enure") unless $_->is_ok;
+    }
+}
+
+sub T14_utf8 :Test(no_plan) {
+    use utf8;
+    my $self = shift;
+    my $txt = "상기 정보는 UTF-8 인코딩되어 서비스되고 있습니다. EUC-KR 인코딩 서비스는 oldwhois.kisa.or.kr에서 서비스 되고 있습니다.";
+    my $doc = Couchbase::Document->new('utf8json', { string => $txt });
+    my $cb = $self->cbo;
+    $cb->upsert($doc);
+    $cb->get($doc);
+    is($txt, $doc->value->{string});
 }
 1;

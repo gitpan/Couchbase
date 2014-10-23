@@ -305,7 +305,7 @@ PLCB_args_unlock(PLCB_t *object, plcb_SINGLEOP *args, lcb_CMDUNLOCK *ucmd)
     };
 
     load_doc_options(object, args->docav, argspecs);
-    if (!ucmd->cas) {
+    if (ucmd->cas == 0 && args->cmdbase == PLCB_CMD_UNLOCK) {
         die("Unlock command must have CAS");
     }
     return 0;
@@ -368,6 +368,13 @@ PLCB_args_set(PLCB_t *object, plcb_SINGLEOP *args, lcb_CMDSTORE *scmd, plcb_DOCV
 
     scmd->exptime = exp;
     if (ignore_cas) {
+        scmd->cas = 0;
+    }
+
+    if (is_append(args->cmdbase)) {
+        scmd->exptime = 0;
+        scmd->flags = 0;
+    } else if (args->cmdbase == PLCB_CMD_ADD) {
         scmd->cas = 0;
     }
 

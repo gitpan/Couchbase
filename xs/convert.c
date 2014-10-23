@@ -98,7 +98,6 @@ plcb_convert_storage(PLCB_t *object, AV *docav, plcb_DOCVAL *vspec)
     uint32_t fmt = vspec->spec;
 
     if (object->cv_customenc) {
-        GT_CUSTOM_CONVERT:
         vspec->need_free = 1;
         vspec->value = custom_convert(docav, object->cv_customenc, vspec->value, &vspec->flags, CONVERT_OUT);
 
@@ -114,18 +113,22 @@ plcb_convert_storage(PLCB_t *object, AV *docav, plcb_DOCVAL *vspec)
 
     } else if (fmt == PLCB_CF_RAW) {
         vspec->flags = PLCB_CF_RAW | PLCB_LF_RAW;
+        vspec->need_free = 0;
         if (!SvPOK(pv)) {
             die("Raw conversion requires string value!");
         }
     } else if (vspec->spec == PLCB_CF_UTF8) {
         vspec->flags = PLCB_CF_UTF8 | PLCB_LF_UTF8;
+        vspec->need_free = 0;
         sv_utf8_upgrade(pv);
 
     } else {
-        if (!object->cv_customenc) {
-            die("Unrecognized flags used (0x%x) but no custom converted installed!", vspec->spec);
-        }
-        goto GT_CUSTOM_CONVERT;
+        die("Unrecognized flags used (0x%x) but no custom converted installed!", vspec->spec);
+    }
+
+    if (!vspec->need_free) {
+        /* Use input as-is */
+        vspec->value = pv;
     }
 
     /* Assume the resultant value is an SV */
@@ -163,6 +166,7 @@ plcb_convert_retrieval(PLCB_t *object, AV *docav,
         /* Flags remain unchanged? */
 
     } else if (IS_FMT(JSON)) {
+        SvUTF8_on(input_sv);
         ret_sv = serialize_convert(object->cv_jsondec, input_sv, CONVERT_IN);
         flags = PLCB_CF_JSON;
 
@@ -188,10 +192,7 @@ plcb_convert_retrieval(PLCB_t *object, AV *docav,
 #undef IS_FMT
 
     SvREFCNT_dec(input_sv);
-
-    if (SvIOK(flags_sv)) {
-        SvUVX(flags_sv) = flags;
-    } else {
+    if (SvIOK(flags_sv) == 0 || SvUVX(flags_sv) != flags) {
         sv_setuv(flags_sv, flags);
     }
     return ret_sv;
