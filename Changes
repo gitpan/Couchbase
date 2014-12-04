@@ -1,3 +1,261 @@
+commit acee55430f4d1e9b3e6d1e5435e75fb71526c6c4
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Dec 4 07:49:17 2014 -0800
+
+    Release version 2.0.2
+
+commit b3b8f97f578eed920ec4dea177d88e9761534787
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Dec 3 14:31:57 2014 -0800
+
+    GH-33: Add section about utf8 encoding
+
+commit 2bf31d93f7f327f3b022181432a13a27c8bb9aec
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Nov 30 14:16:10 2014 -0800
+
+    GH-32: Fix segfault on 32-bit IV perls
+
+commit c8e55b161102b356a4b96fbe0cad10bf82064907
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Nov 29 09:46:33 2014 -0800
+
+    GH-31: Reorganize Views module and documentation
+    
+    This shows some more information about error handling
+
+commit ee46226586f9eaa2c06be8caf8b55a104c4db841
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Nov 29 09:38:00 2014 -0800
+
+    Don't add flags for append/prepend
+
+commit b801de1980141166049f56135d08516539f73aed
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Oct 26 09:34:19 2014 -0700
+
+    Remove 'Netfail' tests
+    
+    These tests are outdated and are made redundant by the tests in
+    libcouchbase.
+
+commit bd0d8d6a15b960029deda8f39c04a250eabbb263
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 25 10:14:09 2014 -0700
+
+    Data::Printer output class should always be prefixed by real class
+
+commit ea50f285c8e8e96c70e5d6248e312d020e860ce1
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 25 10:13:40 2014 -0700
+
+    GH-30: Be more clever about interpreting inline view errors
+
+commit d2433729d2d631181178bd191a9616a8a9321d11
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 23 14:43:20 2014 -0700
+
+    Bump version 2.0.1
+
+commit cc22b1f1a1b1d457bf0d9b63a629cd02bfb788a1
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 23 14:42:52 2014 -0700
+
+    Fix up heading levels in README.pod
+
+commit d243d3b7e9dc8bbe80ef494945c28d5d6c643818
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 22 13:12:01 2014 -0700
+
+    Update testone script to use newer tests
+
+commit c250946defc1dc3bcf551dcbb4589e33a15731db
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 22 13:11:41 2014 -0700
+
+    Allow tests against real server again
+
+commit fc1a4b90eac666a9f52d720ac6fb1ee63f56c248
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 22 13:11:22 2014 -0700
+
+    We don't use Couchbase::View::Design anymore
+
+commit ba8f45484b9a62faa74dcf258cd47fb108707793
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 22 13:11:00 2014 -0700
+
+    Don't pass along invalid options to libcouchbase
+
+commit 6265b04e4396066ae3475eb0a997b8e8858255ee
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 22 13:01:32 2014 -0700
+
+    GH-27: Don't try to extract rows for failed view request
+
+commit 887e97b76c270d2c9311a0a7e5ac4adff7cb79ba
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Oct 21 17:41:57 2014 -0700
+
+    GH-29: Counter accepts `delta`, not `amount`.
+
+commit 7003a696b5576106952a74d55c95b457487ba5fa
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Oct 21 17:37:34 2014 -0700
+
+    GH-28: Treat JSON from server as UTF8
+
+commit 702de52b51a907ccf047610332193096612cdb56
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 20 14:48:57 2014 -0700
+
+    Add a convenience fetch() method
+
+commit 9dedf1ce2d070d763f5331adac6c6f6ba2033df3
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 20 14:45:58 2014 -0700
+
+    convert.c: Clear flag's PV slot
+
+commit b459da75178c5d23374a98e1b51e2e51d1edafd7
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 20 14:45:43 2014 -0700
+
+    Alias COUCHBASE_FMT_BYTES to COUCHBASE_FMT_RAW
+
+commit db9256a1c4e080c7ae495ab21ed5fbf4f39b9120
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 18 17:03:14 2014 -0700
+
+    Add explicit durability method
+
+commit 78b696d8ab37bb466b48677d4c7bbe39f3b6519a
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sat Oct 18 12:39:47 2014 -0700
+
+    Destroy multi context if observe fails
+
+commit da6542b136748f1306a53c11e37350afe65acdf6
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 16 21:31:09 2014 -0700
+
+    Workaround for localized setting values with older perls
+    
+    For some reason we can identify the offending SV if SvTYPE(sv) ==
+    SVt_PVMG. I've only tested this on Perl 5.10.1 with CentOS 6
+
+commit badf2e64428019b56ce2bd24cbd5ba63b5308185
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 16 20:46:47 2014 -0700
+
+    Fix possible crash if value is a reference with fmt=raw
+
+commit ead41359c1e0669d42ed4423a304e071c3dc9da0
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 16 20:44:18 2014 -0700
+
+    convert.c: remove some redundant logic
+
+commit 0410b780d743942663445bae87e53250fddadb11
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 16 10:47:33 2014 -0700
+
+    Make Couchbase::Core package
+    
+    This was a file before, but was missing the 'package' declaration
+
+commit df1a353a009dfa6d1881da8e43e70e4b5ddfeee8
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Thu Oct 16 10:22:40 2014 -0700
+
+    Release of version 2.0.0
+
+commit 8b53904ef8a100555cc8ad2248b6b2486fd42721
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 15 08:41:42 2014 -0700
+
+    Bump version to 2.0.0_4
+
+commit 214da3ab19b711a4bd34f798bda60d8b5b34c74b
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Oct 15 08:41:31 2014 -0700
+
+    Remove deleted files from MANIFEST
+
+commit 86164331965cb8d69f9b19c8b0b853c04391cad6
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Oct 14 17:45:26 2014 -0700
+
+    GH-23: Don't try endure if storage fails
+    
+    This was previously giving the impression that the operation succeeded
+    because the endure operation was being performed on the _previous_ CAS.
+
+commit a186c59b148c076518bbb0ae368f2c03112f72a6
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 16:12:49 2014 -0700
+
+    Remove obsoleted API examples
+    
+    - We don't have a current async interface yet (old one was horrible)
+    - iter and multi are now done through the same API via ->batch()
+
+commit 0f574529d628fbe66d52537309173775ae3a2a5e
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 16:06:20 2014 -0700
+
+    Make couch_demo use newer API
+
+commit f7b1c6ae458912b11735d9ae1c4d8a81212f5a1a
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 16:06:06 2014 -0700
+
+    Allow simultaneous views and kv ops
+
+commit 88a0df9c7cf15fd849885bb803d58ed2e0af957a
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 14:31:42 2014 -0700
+
+    Add POE adapter
+
+commit b1cb100ede2e83339a936163652e3e5d1127932b
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 13:42:42 2014 -0700
+
+    IO::Async adapter should use cached sched/remove values
+
+commit 1f992ea2c0544b368da10b669e0d6ce8df867434
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 13:40:58 2014 -0700
+
+    async: do sched/remove calculations in C
+    
+    This makes things about 10% quicker
+
+commit ccceb22faf20efc7fb2d33e4fac07c84ee7bc578
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 11:20:22 2014 -0700
+
+    More async fixes
+
+commit bceeb3b2aa6b8df65ea7ca50bec677dc619b0102
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 11:14:57 2014 -0700
+
+    Fix indentation in README
+
+commit fa4afaf973487e49c57f00e3c679e5faf1df2abd
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 11:14:30 2014 -0700
+
+    I changed my IRC handle
+
+commit 32316fcdff511c150c69c1b989bb93a434614e97
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Oct 13 11:13:41 2014 -0700
+
+    GH-20: Clean up Makefile.PL
+
 commit a028e1b719ceb926963cb2847316e105a35e9b9d
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Mon Oct 13 11:07:35 2014 -0700

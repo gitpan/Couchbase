@@ -1,10 +1,4 @@
 package Couchbase::View::HandleInfo;
-# Subclass of Couchbase::Client::Return, with extra fields
-# for handling callbacks and http codes. This 'unimplements'
-# the cas method, which is not applicable to HTTP queries.
-#
-# ^^^^ This might change in the future, as CAS is actually encoded in the rev
-# field.
 
 use strict;
 use warnings;
@@ -59,11 +53,9 @@ sub errstr {
         $ret .= sprintf(" (HTTP=%d)", $self->http_code);
     }
     if ($self->errinfo) {
-        if ($self->errinfo->{errors}) {
-            $ret .= " [There were some errors fetching individual rows. "
-                    ."See ->errinfo]";
-
-        } elsif ($self->errinfo->{error}) {
+        if (ref $self->errinfo eq 'ARRAY') {
+            $ret .= " [There were some errors fetching individual rows. See ->errinfo]";
+        } elsif (ref $self->errinfo eq 'HASH') {
             $ret .= sprintf(" [Query Error (error=%s, reason=%s)]",
                             $self->errinfo->{error}, $self->errinfo->{reason});
         }
@@ -74,10 +66,14 @@ sub errstr {
 sub _extract_row_errors {
     my ($self,$hash) = @_;
     if (exists $hash->{errors}) {
+        # Errors received from individual nodes
         $self->[COUCHIDX_ERREXTRA] = delete $hash->{errors};
     } elsif (exists $hash->{error}) {
-        $self->[COUCHIDX_ERREXTRA] = { reason => delete $hash->{reason},
-                                        error => delete $hash->{error} };
+        # Errors received for the query itself, e.g. "not_found"
+        $self->[COUCHIDX_ERREXTRA] = {
+            reason => delete $hash->{reason},
+            error => delete $hash->{error}
+        };
     }
 }
 
@@ -101,6 +97,19 @@ sub _extract_view_results {
     }
 }
 
+sub as_hash {
+    my $self = shift;
+    my %h = (
+        path => $self->path,
+        count => $self->count,
+        status => $self->errstr,
+    );
+    if (!$self->is_ok) {
+        $h{errinfo} = $self->errinfo;
+    }
+    return \%h;
+}
+
 {
     no warnings 'once';
     *rows = *Couchbase::Document::value;
@@ -112,20 +121,20 @@ __END__
 
 =head1 NAME
 
-Couchbase::View::HandleInfo - Handle-oriented informational subclass of Couchbase::Client::Return
+Couchbase::View::HandleInfo - informational subclass of Couchbase::Document
 
 =head1 DESCRIPTION
 
-This object subclasses L<Couchbase::Client::Return> and fulfills the same role (
+This object subclasses L<Couchbase::Document> and fulfills the same role (
 but for couchbase view requests, rather than memcached operations).
 
 =head2 ADDED FIELDS
 
-These fields are added to the L<Couchbase::Client::Return> object
+These fields are added to the L<Couchbase::Document> object
 
 =head3 http_code
 
-Returns the HTTP status code for the operation
+Returns the HTTP status code for the operation, e.g C<200> or C<404>
 
 =head3 path
 
@@ -140,14 +149,6 @@ Returns the count (if any) for the matched result
 Returns extended (non-http, non-libcouchbase, non-memcached) error information.
 This is usually a hash converted from a JSON error response.
 
-=head2 REMOVED FIELDS
-
-The following fields have been I<unimplemented> from L<Couchbase::Client::Return>
-
-=head3 cas
-
-There is no explicit documented method for the server to return the cas, although
-it is somewhat expressed in the C<rev> field.
 
 =head2 REIMPLEMENTED FIELDS
 

@@ -23,13 +23,15 @@ lib/Couchbase/MockServer.pm
 lib/Couchbase/Test/ClientSync.pm
 lib/Couchbase/Test/Common.pm
 lib/Couchbase/Test/Settings.pm
-lib/Couchbase/Test/Netfail.pm
 lib/Couchbase/Test/Views.pm
 
 ################################################################################
 ### Views Perl API                                                           ###
 ################################################################################
 lib/Couchbase/View/Handle.pm
+lib/Couchbase/View/Handle/ViewIterator.pm
+lib/Couchbase/View/Handle/RawIterator.pm
+lib/Couchbase/View/Handle/Slurpee.pm
 lib/Couchbase/View/HandleInfo.pm
 
 ################################################################################

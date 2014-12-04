@@ -76,16 +76,11 @@ convert_valspec(plcb_OPTION *dst, SV *src)
         break;
 
     case PLCB_ARG_T_CAS: {
-        uint64_t *cas_p = NULL;
         if (SvTYPE(src) == SVt_NULL) {
             break;
         }
 
-        plcb_cas_from_sv(src, cas_p);
-        if (cas_p) {
-            *(uint64_t*)dst->value = *cas_p;
-        }
-
+        *(uint64_t*)dst->value = plcb_sv2cas(src);
         break;
 
     }
@@ -373,7 +368,6 @@ PLCB_args_set(PLCB_t *object, plcb_SINGLEOP *args, lcb_CMDSTORE *scmd, plcb_DOCV
 
     if (is_append(args->cmdbase)) {
         scmd->exptime = 0;
-        scmd->flags = 0;
     } else if (args->cmdbase == PLCB_CMD_ADD) {
         scmd->cas = 0;
     }
